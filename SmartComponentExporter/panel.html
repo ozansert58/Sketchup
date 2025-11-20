@@ -84,6 +84,22 @@
       border: 1px solid #d1d5db;
       background: #f9fafb;
     }
+    .settings-path::placeholder {
+      color: #9ca3af;
+      font-style: italic;
+    }
+    .note-badge {
+      display: inline-block;
+      min-width: 16px;
+      padding: 1px 4px;
+      margin-left: 4px;
+      background: #ef4444;
+      color: white;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 600;
+      text-align: center;
+    }
     .small {
       font-size: 11px;
       padding: 3px 8px;
@@ -248,17 +264,17 @@
         </div>
         <div class="settings-row">
           <div class="settings-label">Render</div>
-          <input id="renderPathDisplay" class="settings-path" type="text" readonly />
+          <input id="renderPathDisplay" class="settings-path" type="text" readonly placeholder="Henüz seçilmedi..." />
           <button class="small" onclick="onChooseRenderPath()">Seç</button>
         </div>
         <div class="settings-row">
           <div class="settings-label">Teklif</div>
-          <input id="offerPathDisplay" class="settings-path" type="text" readonly />
+          <input id="offerPathDisplay" class="settings-path" type="text" readonly placeholder="Henüz seçilmedi..." />
           <button class="small" onclick="onChooseOfferPath()">Seç</button>
         </div>
         <div class="settings-row">
           <div class="settings-label">Proje Dosyası</div>
-          <input id="projectPathDisplay" class="settings-path" type="text" readonly />
+          <input id="projectPathDisplay" class="settings-path" type="text" readonly placeholder="Henüz seçilmedi..." />
           <button class="small" onclick="onChooseProjectPath()">Seç</button>
         </div>
       </div>
@@ -267,6 +283,7 @@
 
 <script>
     function sendAction(name, payload) {
+      console.log('sendAction:', name, payload);
       if (window.sketchup && window.sketchup[name]) {
         try {
           window.sketchup[name](JSON.stringify(payload || {}));
@@ -288,24 +305,28 @@
 
     function onUpdate(btn) {
       var path = pathFromButton(btn);
+      console.log('onUpdate:', path);
       if (!path) return;
       sendAction("update_from_panel", { file_path: path });
     }
 
     function onReload(btn) {
       var path = pathFromButton(btn);
+      console.log('onReload:', path);
       if (!path) return;
       sendAction("reload_from_panel", { file_path: path });
     }
 
     function onOpenFile(btn) {
       var path = pathFromButton(btn);
+      console.log('onOpenFile:', path);
       if (!path) return;
       sendAction("open_from_panel", { file_path: path });
     }
 
     function onRestore(btn) {
       var path = pathFromButton(btn);
+      console.log('onRestore:', path);
       if (!path) return;
       if (!confirm("Yedekten dosyayı geri çağırmak istiyor musunuz?")) return;
       sendAction("restore_backup", { file_path: path });
@@ -314,11 +335,13 @@
     function onOpenNotes(btn) {
       var path = pathFromButton(btn);
       var name = nameFromButton(btn);
+      console.log('onOpenNotes:', path, name);
       if (!path) return;
       sendAction("open_notes", { file_path: path, name: name });
     }
 
     function renderRows(entries) {
+      console.log('renderRows called with', entries);
       var tbody = document.getElementById("componentTableBody");
       var empty = document.getElementById("emptyState");
       tbody.innerHTML = "";
@@ -338,9 +361,13 @@
           ? '<button class="ghost" title="Yedekten geri yükle" onclick="onRestore(this)">⟲</button>'
           : '<span class="ghost-icon">⟲</span>';
 
+        var noteBadge = (e.note_count && e.note_count > 0) 
+          ? '<span class="note-badge">' + e.note_count + '</span>' 
+          : '';
+
         tr.innerHTML =
           '<td class="name">' + (e.name || "") + '</td>' +
-          '<td><button class="neutral" onclick="onOpenNotes(this)">Notlar</button></td>' +
+          '<td><button class="neutral" onclick="onOpenNotes(this)">Notlar' + noteBadge + '</button></td>' +
           '<td><button class="primary" onclick="onUpdate(this)">Güncelle</button></td>' +
           '<td><button class="neutral" onclick="onOpenFile(this)">Modeli Aç</button></td>' +
           '<td><button class="secondary" onclick="onReload(this)">Kaynaktan Çağır</button></td>' +
@@ -352,6 +379,7 @@
     }
 
     window.SMART_EXPORTER_setData = function(entries) {
+      console.log('SMART_EXPORTER_setData called with:', entries);
       try {
         if (typeof entries === "string") {
           entries = JSON.parse(entries);
@@ -364,6 +392,7 @@
     };
 
     window.SMART_EXPORTER_setSettings = function(settings) {
+      console.log('SMART_EXPORTER_setSettings called with:', settings);
       try {
         if (typeof settings === "string") {
           settings = JSON.parse(settings);
@@ -376,30 +405,44 @@
       var r = document.getElementById("renderPathDisplay");
       var o = document.getElementById("offerPathDisplay");
       var p = document.getElementById("projectPathDisplay");
-      if (r) r.value = settings.render_path || "";
-      if (o) o.value = settings.offer_path || "";
-      if (p) p.value = settings.project_path || "";
+      if (r) {
+        r.value = settings.render_path || "";
+        console.log('Set render path:', r.value);
+      }
+      if (o) {
+        o.value = settings.offer_path || "";
+        console.log('Set offer path:', o.value);
+      }
+      if (p) {
+        p.value = settings.project_path || "";
+        console.log('Set project path:', p.value);
+      }
     };
 
     function requestData() {
+      console.log('requestData called');
       if (window.sketchup && window.sketchup.request_data) {
         window.sketchup.request_data();
       }
     }
 
     function onOpenRenderTarget() {
+      console.log('onOpenRenderTarget');
       sendAction("open_render_target", {});
     }
 
     function onOpenOfferTarget() {
+      console.log('onOpenOfferTarget');
       sendAction("open_offer_target", {});
     }
 
     function onOpenProjectFolder() {
+      console.log('onOpenProjectFolder');
       sendAction("open_project_folder", {});
     }
 
     function onOpenSettings() {
+      console.log('onOpenSettings');
       var list  = document.getElementById("viewList");
       var sett  = document.getElementById("viewSettings");
       if (!list || !sett) return;
@@ -408,6 +451,7 @@
     }
 
     function onBackToList() {
+      console.log('onBackToList');
       var list  = document.getElementById("viewList");
       var sett  = document.getElementById("viewSettings");
       if (!list || !sett) return;
@@ -416,18 +460,22 @@
     }
 
     function onChooseRenderPath() {
+      console.log('onChooseRenderPath');
       sendAction("choose_render_path", {});
     }
 
     function onChooseOfferPath() {
+      console.log('onChooseOfferPath');
       sendAction("choose_offer_path", {});
     }
 
     function onChooseProjectPath() {
+      console.log('onChooseProjectPath');
       sendAction("choose_project_path", {});
     }
 
     document.addEventListener("DOMContentLoaded", function() {
+      console.log('DOM ready, requesting data');
       requestData();
     });
   </script>

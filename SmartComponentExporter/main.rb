@@ -155,11 +155,25 @@ module SmartComponentExporter
     end
   end
 
+  # ---------------- Note counts ----------------
+  def get_note_counts
+    counts = {}
+    model = Sketchup.active_model
+    model.definitions.to_a.each do |d|
+      file_path = d.get_attribute(ATTR_KEY, ATTR_PATH)
+      next if !file_path || file_path.to_s.strip.empty?
+      notes = read_notes_for(file_path)
+      counts[file_path] = notes.length if notes.length > 0
+    end
+    counts
+  end
+
   # ---------------- Panel list ----------------
   def list_source_components
     model = Sketchup.active_model
     auto_attach_tsn_components(model) rescue nil
     entries, seen = [], {}
+    note_counts = get_note_counts
     model.definitions.to_a.each do |d|
       file_path = d.get_attribute(ATTR_KEY, ATTR_PATH)
       next if !file_path || file_path.to_s.strip.empty?
@@ -170,7 +184,8 @@ module SmartComponentExporter
       name = d.name.to_s.strip.empty? ? base : d.name
       entries << { name: name, file_path: file_path,
                    updated_at: (stat ? format_time_tr(stat.mtime) : ""),
-                   backup_exists: File.exist?(backup_path_for(file_path)) }
+                   backup_exists: File.exist?(backup_path_for(file_path)),
+                   note_count: note_counts[file_path] || 0 }
       seen[file_path] = true
     end
     entries.sort_by { |e| e[:name].downcase }
@@ -284,47 +299,75 @@ module SmartComponentExporter
 </div>
 <script>
  var PATH=null, EDIT=null;
- function bridge(n,p){ if(window.sketchup&&window.sketchup[n]){ try{ window.sketchup[n](JSON.stringify(p||{})); }catch(e){} } }
+ function bridge(n,p){ 
+   console.log('bridge call:', n, p);
+   if(window.sketchup&&window.sketchup[n]){ 
+     try{ 
+       window.sketchup[n](JSON.stringify(p||{})); 
+     }catch(e){
+       console.error('bridge error:', e);
+     } 
+   } 
+ }
  function render(arr){
+   console.log('render called with', arr);
    var list = document.getElementById('list'); list.innerHTML='';
    if(!arr||!arr.length){ list.innerHTML='<div class="empty">Henüz not yok.</div>'; return; }
    arr.forEach(function(n,i){
      var d=document.createElement('div'); d.className='note';
      d.innerHTML='<div>'+ (n.text||'') +'</div><div class="meta"><span>'+(n.at||'')+'</span><a href="#" data-i="'+i+'">Düzenle</a></div>';
-     d.querySelector('a').addEventListener('click', function(ev){ ev.preventDefault(); var i=+this.dataset.i; var inp=document.getElementById('inp'); inp.value=(arr[i].text||''); inp.focus(); EDIT=i; });
+     d.querySelector('a').addEventListener('click', function(ev){ ev.preventDefault(); var i=+this.dataset.i; var inp=document.getElementById('inp'); inp.value=(arr[i].text||''); inp.focus(); EDIT=i; console.log('Edit mode:', i); });
      list.appendChild(d);
    });
  }
  window.NOTES_setData=function(payload){
-   try{ if(typeof payload==='string') payload=JSON.parse(payload); }catch(e){ return; }
+   console.log('NOTES_setData called with:', payload);
+   try{ if(typeof payload==='string') payload=JSON.parse(payload); }catch(e){ console.error('parse error:', e); return; }
    PATH = payload.file_path || null;
+   console.log('PATH set to:', PATH);
    render(payload.notes||[]);
  };
  function onSave(){
+   console.log('onSave called, PATH:', PATH, 'EDIT:', EDIT);
    var inp=document.getElementById('inp'); if(!inp||!PATH) return;
    var t=(inp.value||'').trim(); if(!t) return;
-   if(EDIT==null){ bridge('add_note', {file_path: PATH, text: t}); }
-   else{ bridge('update_note', {file_path: PATH, index: EDIT, text: t}); EDIT=null; }
+   if(EDIT==null){ 
+     console.log('Adding new note:', t);
+     bridge('add_note', {file_path: PATH, text: t}); 
+   }
+   else{ 
+     console.log('Updating note at index:', EDIT, 'with text:', t);
+     bridge('update_note', {file_path: PATH, index: EDIT, text: t}); 
+     EDIT=null; 
+   }
    inp.value=''; inp.focus();
  }
- document.addEventListener('DOMContentLoaded', function(){ bridge('request_notes_data', {}); });
+ document.addEventListener('DOMContentLoaded', function(){ console.log('DOM ready, requesting notes data'); bridge('request_notes_data', {}); });
 </script>
 </body></html>
     HTML
     @notes_dialog.set_html(html)
     @notes_dialog.add_action_callback("request_notes_data"){ |dlg,_|
+      puts "DEBUG: request_notes_data called for #{file_path}"
       payload = { file_path: file_path, name: name.to_s, notes: read_notes_for(file_path) }
+      puts "DEBUG: Sending notes payload: #{payload.inspect}"
       dlg.execute_script("window.NOTES_setData(#{JSON.generate(payload)})")
     }
     @notes_dialog.add_action_callback("add_note"){ |dlg,p|
+      puts "DEBUG: add_note called with payload: #{p}"
       d = parse_payload(p)
       arr = append_note_for(file_path, d["text"].to_s)
+      puts "DEBUG: Note added, new array length: #{arr.length}"
       dlg.execute_script("window.NOTES_setData(#{JSON.generate({file_path: file_path, name: name.to_s, notes: arr})})")
+      refresh_panel_if_open
     }
     @notes_dialog.add_action_callback("update_note"){ |dlg,p|
+      puts "DEBUG: update_note called with payload: #{p}"
       d = parse_payload(p)
       arr = update_note_for(file_path, d["index"].to_i, d["text"].to_s)
+      puts "DEBUG: Note updated, array length: #{arr.length}"
       dlg.execute_script("window.NOTES_setData(#{JSON.generate({file_path: file_path, name: name.to_s, notes: arr})})")
+      refresh_panel_if_open
     }
     @notes_dialog.show
   end
@@ -361,30 +404,42 @@ module SmartComponentExporter
 
     # --- FIX: Project path must be a FOLDER picker (UI.select_directory) ---
     @source_panel_dialog.add_action_callback("choose_project_path"){ |d,_|
+      puts "DEBUG: choose_project_path called"
       folder = UI.select_directory("Proje klasörünü seç")
       if folder
+        puts "DEBUG: Selected project folder: #{folder}"
         write_setting("project_path", folder)
-        d.execute_script("window.SMART_EXPORTER_setSettings(#{JSON.generate(read_all_settings)})")
+        settings = read_all_settings
+        puts "DEBUG: Sending settings: #{settings.inspect}"
+        d.execute_script("window.SMART_EXPORTER_setSettings(#{JSON.generate(settings)})")
       end
     }
     @source_panel_dialog.add_action_callback("choose_render_path"){ |d,_|
+      puts "DEBUG: choose_render_path called"
       default_dir = File.dirname(Sketchup.active_model.path) rescue Dir.home
       existing = read_setting("render_path")
       default_dir = File.dirname(existing) if !existing.to_s.empty? && File.exist?(File.dirname(existing))
       file = UI.openpanel("Render dosyasını seç", default_dir, "Tüm Dosyalar|*.*||")
       if file
+        puts "DEBUG: Selected render file: #{file}"
         write_setting("render_path", file)
-        d.execute_script("window.SMART_EXPORTER_setSettings(#{JSON.generate(read_all_settings)})")
+        settings = read_all_settings
+        puts "DEBUG: Sending settings: #{settings.inspect}"
+        d.execute_script("window.SMART_EXPORTER_setSettings(#{JSON.generate(settings)})")
       end
     }
     @source_panel_dialog.add_action_callback("choose_offer_path"){ |d,_|
+      puts "DEBUG: choose_offer_path called"
       default_dir = File.dirname(Sketchup.active_model.path) rescue Dir.home
       existing = read_setting("offer_path")
       default_dir = File.dirname(existing) if !existing.to_s.empty? && File.exist?(File.dirname(existing))
       file = UI.openpanel("Teklif dosyasını seç", default_dir, "Tüm Dosyalar|*.*||")
       if file
+        puts "DEBUG: Selected offer file: #{file}"
         write_setting("offer_path", file)
-        d.execute_script("window.SMART_EXPORTER_setSettings(#{JSON.generate(read_all_settings)})")
+        settings = read_all_settings
+        puts "DEBUG: Sending settings: #{settings.inspect}"
+        d.execute_script("window.SMART_EXPORTER_setSettings(#{JSON.generate(settings)})")
       end
     }
 
