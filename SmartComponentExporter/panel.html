@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Kaynak Paneli</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+      background: #ffffff;
+      color: #111827;
+    }
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    header {
+      padding: 10px 16px;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #f3f4f6;
+    }
+    .title {
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .subtitle {
+      font-size: 11px;
+      opacity: 0.8;
+    }
+    .right-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      opacity: 0.9;
+    }
+
+    .menu {
+      border-radius: 999px;
+      border: 1px solid #d1d5db;
+      background: #f9fafb;
+      font-size: 11px;
+      padding: 4px 10px;
+      cursor: pointer;
+      margin-left: 4px;
+    }
+    .menu:hover {
+      background: #e5e7eb;
+    }
+    .menu.settings {
+      border-color: #4f46e5;
+      color: #4f46e5;
+    }
+    .settings-title {
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .settings-row {
+      display: grid;
+      grid-template-columns: 90px 1fr auto;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+      font-size: 11px;
+    }
+    .settings-label {
+      color: #4b5563;
+    }
+    .settings-path {
+      font-size: 11px;
+      padding: 4px 6px;
+      border-radius: 4px;
+      border: 1px solid #d1d5db;
+      background: #f9fafb;
+    }
+    .small {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      cursor: pointer;
+    }
+    .small:hover {
+      background: #f3f4f6;
+    }
+.refresh {
+      border: none;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      background: #4c1d95;
+      color: #f9fafb;
+    }
+    .refresh:hover {
+      background: #5b21b6;
+    }
+    main {
+      flex: 1;
+      padding: 8px 16px 16px;
+      overflow: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    th, td {
+      padding: 6px 8px;
+      text-align: left;
+    }
+    thead {
+      background: #e5e7eb;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    tbody tr:nth-child(even) {
+      background: #ffffff;
+    }
+    tbody tr:nth-child(odd) {
+      background: #f9fafb;
+    }
+    th {
+      font-weight: 500;
+      color: #374151;
+      border-bottom: 1px solid #d1d5db;
+    }
+    td {
+      border-bottom: 1px solid #e5e7eb;
+    }
+    td.name {
+      font-weight: 500;
+      color: #111827;
+    }
+    td.date {
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+      color: #4b5563;
+    }
+    td.backup {
+      text-align: center;
+      width: 48px;
+    }
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      background: #e5e7eb;
+      color: #111827;
+    }
+    button.primary {
+      background: #4c1d95;
+      color: #f9fafb;
+    }
+    button.primary:hover {
+      background: #5b21b6;
+    }
+    button.secondary {
+      background: #111827;
+      color: #f9fafb;
+    }
+    button.secondary:hover {
+      background: #374151;
+    }
+    button.neutral {
+      background: #e5e7eb;
+      color: #111827;
+    }
+    button.neutral:hover {
+      background: #d1d5db;
+    }
+    button.ghost {
+      background: transparent;
+      padding: 2px 6px;
+      opacity: 0.5;
+    }
+    button.ghost:hover {
+      opacity: 0.9;
+      background: #e5e7eb;
+    }
+    .ghost-icon {
+      opacity: 0.35;
+      font-size: 13px;
+    }
+    .empty {
+      margin-top: 16px;
+      font-size: 12px;
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+
+<header>
+      <div>
+        <div class="title">Kaynağa Kaydedilmiş Bileşenler</div>
+        <div class="subtitle">Bu modelle ilişkilendirilmiş bileşen kaynakları</div>
+      </div>
+      <div class="right-controls">
+        <button class="menu" onclick="onOpenRenderTarget()">Render</button>
+        <button class="menu" onclick="onOpenOfferTarget()">Teklif</button>
+        <button class="menu" onclick="onOpenProjectFolder()">Proje Dosyası</button>
+        <button class="menu settings" onclick="onOpenSettings()">Ayarlar</button>
+      </div>
+    </header>
+
+    <main>
+      <div id="viewList">
+        <table>
+          <thead>
+            <tr>
+              <th>Bileşen Adı</th>
+              <th>Notlar</th>
+              <th>Güncelle</th>
+              <th>Modeli Aç</th>
+              <th>Kaynaktan Çağır</th>
+              <th>Son Güncelleme</th>
+              <th>Yedek</th>
+            </tr>
+          </thead>
+          <tbody id="componentTableBody"></tbody>
+        </table>
+        <div id="emptyState" class="empty" style="display:none;">
+          Bu model için ilişkilendirilmiş kaynak bulunamadı.
+          <br/>Bileşen seçip sağ tık menüsünden <strong>Hazırla ve Kaydet</strong> ile ekleyebilirsiniz.
+        </div>
+      </div>
+      <div id="viewSettings" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+          <div class="settings-title">Dosya yollarını belirle</div>
+          <button class="small" onclick="onBackToList()">Listeye dön</button>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">Render</div>
+          <input id="renderPathDisplay" class="settings-path" type="text" readonly />
+          <button class="small" onclick="onChooseRenderPath()">Seç</button>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">Teklif</div>
+          <input id="offerPathDisplay" class="settings-path" type="text" readonly />
+          <button class="small" onclick="onChooseOfferPath()">Seç</button>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">Proje Dosyası</div>
+          <input id="projectPathDisplay" class="settings-path" type="text" readonly />
+          <button class="small" onclick="onChooseProjectPath()">Seç</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+<script>
+    function sendAction(name, payload) {
+      if (window.sketchup && window.sketchup[name]) {
+        try {
+          window.sketchup[name](JSON.stringify(payload || {}));
+        } catch (e) {
+          console.log("SketchUp bridge error:", e);
+        }
+      }
+    }
+
+    function pathFromButton(btn) {
+      var tr = btn.closest("tr");
+      return tr ? tr.dataset.filePath : null;
+    }
+
+    function nameFromButton(btn) {
+      var tr = btn.closest("tr");
+      return tr ? (tr.dataset.name || "") : "";
+    }
+
+    function onUpdate(btn) {
+      var path = pathFromButton(btn);
+      if (!path) return;
+      sendAction("update_from_panel", { file_path: path });
+    }
+
+    function onReload(btn) {
+      var path = pathFromButton(btn);
+      if (!path) return;
+      sendAction("reload_from_panel", { file_path: path });
+    }
+
+    function onOpenFile(btn) {
+      var path = pathFromButton(btn);
+      if (!path) return;
+      sendAction("open_from_panel", { file_path: path });
+    }
+
+    function onRestore(btn) {
+      var path = pathFromButton(btn);
+      if (!path) return;
+      if (!confirm("Yedekten dosyayı geri çağırmak istiyor musunuz?")) return;
+      sendAction("restore_backup", { file_path: path });
+    }
+
+    function onOpenNotes(btn) {
+      var path = pathFromButton(btn);
+      var name = nameFromButton(btn);
+      if (!path) return;
+      sendAction("open_notes", { file_path: path, name: name });
+    }
+
+    function renderRows(entries) {
+      var tbody = document.getElementById("componentTableBody");
+      var empty = document.getElementById("emptyState");
+      tbody.innerHTML = "";
+
+      if (!entries || !entries.length) {
+        empty.style.display = "block";
+        return;
+      }
+      empty.style.display = "none";
+
+      entries.forEach(function(e) {
+        var tr = document.createElement("tr");
+        tr.dataset.filePath = e.file_path;
+        tr.dataset.name     = e.name || "";
+
+        var backupCellContent = e.backup_exists
+          ? '<button class="ghost" title="Yedekten geri yükle" onclick="onRestore(this)">⟲</button>'
+          : '<span class="ghost-icon">⟲</span>';
+
+        tr.innerHTML =
+          '<td class="name">' + (e.name || "") + '</td>' +
+          '<td><button class="neutral" onclick="onOpenNotes(this)">Notlar</button></td>' +
+          '<td><button class="primary" onclick="onUpdate(this)">Güncelle</button></td>' +
+          '<td><button class="neutral" onclick="onOpenFile(this)">Modeli Aç</button></td>' +
+          '<td><button class="secondary" onclick="onReload(this)">Kaynaktan Çağır</button></td>' +
+          '<td class="date">' + (e.updated_at || "") + '</td>' +
+          '<td class="backup">' + backupCellContent + '</td>';
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    window.SMART_EXPORTER_setData = function(entries) {
+      try {
+        if (typeof entries === "string") {
+          entries = JSON.parse(entries);
+        }
+      } catch (e) {
+        console.log("JSON parse error:", e);
+        entries = [];
+      }
+      renderRows(entries);
+    };
+
+    window.SMART_EXPORTER_setSettings = function(settings) {
+      try {
+        if (typeof settings === "string") {
+          settings = JSON.parse(settings);
+        }
+      } catch (e) {
+        console.log("Settings JSON parse error:", e);
+        return;
+      }
+      settings = settings || {};
+      var r = document.getElementById("renderPathDisplay");
+      var o = document.getElementById("offerPathDisplay");
+      var p = document.getElementById("projectPathDisplay");
+      if (r) r.value = settings.render_path || "";
+      if (o) o.value = settings.offer_path || "";
+      if (p) p.value = settings.project_path || "";
+    };
+
+    function requestData() {
+      if (window.sketchup && window.sketchup.request_data) {
+        window.sketchup.request_data();
+      }
+    }
+
+    function onOpenRenderTarget() {
+      sendAction("open_render_target", {});
+    }
+
+    function onOpenOfferTarget() {
+      sendAction("open_offer_target", {});
+    }
+
+    function onOpenProjectFolder() {
+      sendAction("open_project_folder", {});
+    }
+
+    function onOpenSettings() {
+      var list  = document.getElementById("viewList");
+      var sett  = document.getElementById("viewSettings");
+      if (!list || !sett) return;
+      list.style.display  = "none";
+      sett.style.display  = "block";
+    }
+
+    function onBackToList() {
+      var list  = document.getElementById("viewList");
+      var sett  = document.getElementById("viewSettings");
+      if (!list || !sett) return;
+      sett.style.display  = "none";
+      list.style.display  = "block";
+    }
+
+    function onChooseRenderPath() {
+      sendAction("choose_render_path", {});
+    }
+
+    function onChooseOfferPath() {
+      sendAction("choose_offer_path", {});
+    }
+
+    function onChooseProjectPath() {
+      sendAction("choose_project_path", {});
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+      requestData();
+    });
+  </script>
+
+</body>
+</html>
